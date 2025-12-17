@@ -61,15 +61,25 @@ export class LettaServer {
         this.handlersRegistered = false;
 
         // Validate environment variables
-        this.apiBase = process.env.LETTA_BASE_URL ?? '';
+        const rawBaseUrl = process.env.LETTA_BASE_URL ?? '';
         this.password = process.env.LETTA_PASSWORD ?? '';
-        if (!this.apiBase) {
+        if (!rawBaseUrl) {
             throw new Error('Missing required environment variable: LETTA_BASE_URL');
         }
 
-        // Initialize axios instance (keep for backward compatibility)
-        if (!this.apiBase.endsWith('/v1')) {
+        const hasQueryOrFragment = rawBaseUrl.includes('?') || rawBaseUrl.includes('#');
+
+        // Normalize axios base URL to always end with exactly "/v1" (no duplicate slashes)
+        // Note: For URLs containing query params/fragments, keep legacy behavior.
+        if (!hasQueryOrFragment) {
+            const trimmed = rawBaseUrl.replace(/\/+$/, '');
+            this.apiBase = trimmed.replace(/\/v1$/, '');
             this.apiBase = `${this.apiBase}/v1`;
+        } else {
+            this.apiBase = rawBaseUrl;
+            if (!this.apiBase.endsWith('/v1')) {
+                this.apiBase = `${this.apiBase}/v1`;
+            }
         }
 
         // Configure HTTP/HTTPS agents with connection pooling
@@ -104,11 +114,20 @@ export class LettaServer {
         });
 
         // Initialize Letta SDK client
-        // The SDK provides type-safe methods for Letta API operations
-        const baseUrl = process.env.LETTA_BASE_URL || '';
+        // The SDK uses option keys: baseURL + apiKey (not baseUrl/token).
+        // It also expects baseURL without "/v1" (it prefixes resource paths with "/v1/").
+        // Normalize input to avoid redirects and accidental "/v1/v1" requests.
+        const sdkBaseUrl = hasQueryOrFragment
+            ? rawBaseUrl
+            : rawBaseUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
+
+        this.logger.info(
+            `Initializing Letta SDK with baseURL: ${sdkBaseUrl}, apiKey length: ${this.password?.length}`,
+        );
+
         this.client = new Letta({
-            baseUrl: baseUrl.endsWith('/v1') ? baseUrl.slice(0, -3) : baseUrl,
-            token: this.password,
+            baseURL: sdkBaseUrl,
+            apiKey: this.password,
         });
     }
 
@@ -245,7 +264,14 @@ export class LettaServer {
         try {
             return await sdkFunction();
         } catch (error) {
-            this.logger.error('SDK call failed:', { error, context });
+            const sdkDebug = {
+                name: error?.name,
+                message: error?.message,
+                status: error?.status,
+                error: error?.error,
+            };
+
+            this.logger.error('SDK call failed:', { error: sdkDebug, context });
 
             let errorMessage = '';
             let errorCode = ErrorCode.InternalError;
@@ -264,6 +290,18 @@ export class LettaServer {
                             ? error.response.data
                             : JSON.stringify(error.response.data);
                     errorMessage += ` - ${dataStr}`;
+                }
+            }
+            // Handle Letta SDK API errors (Stainless)
+            else if (typeof error?.status === 'number') {
+                errorCode = this.mapErrorCode(error.status);
+                errorMessage = error.message || 'Request failed';
+                if (error.error) {
+                    try {
+                        errorMessage += ` - ${JSON.stringify(error.error)}`;
+                    } catch {
+                        errorMessage += ' - [unserializable error body]';
+                    }
                 }
             }
             // Handle generic errors

@@ -310,7 +310,7 @@ describe('LettaServer Initialization (LMP-82)', () => {
             process.env.LETTA_PASSWORD = 'test-password';
 
             const server = new LettaServer();
-            expect(server.apiBase).toBe('https://test.letta.com//v1');
+            expect(server.apiBase).toBe('https://test.letta.com/v1');
         });
     });
 
@@ -333,17 +333,17 @@ describe('LettaServer Initialization (LMP-82)', () => {
 
             expect(Letta).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    baseUrl: 'https://test.letta.com',
+                    baseURL: 'https://test.letta.com',
                 }),
             );
         });
 
-        it('should pass token to Letta client', () => {
+        it('should pass apiKey to Letta client', () => {
             new LettaServer();
 
             expect(Letta).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    token: 'test-password',
+                    apiKey: 'test-password',
                 }),
             );
         });
@@ -355,7 +355,7 @@ describe('LettaServer Initialization (LMP-82)', () => {
 
             expect(Letta).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    baseUrl: 'https://test.letta.com',
+                    baseURL: 'https://test.letta.com',
                 }),
             );
         });

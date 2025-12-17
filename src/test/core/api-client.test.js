@@ -70,7 +70,7 @@ describe('API Client Configuration (LMP-85)', () => {
 
             expect(axios.create).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    baseURL: 'https://api.letta.com//v1',
+                    baseURL: 'https://api.letta.com/v1',
                     headers: {
                         'Content-Type': 'application/json',
                         Accept: 'application/json',
@@ -369,7 +369,7 @@ describe('API Client Configuration (LMP-85)', () => {
 
             new LettaServer();
 
-            // Should append /v1 before query params (current behavior)
+            // Legacy behavior: we don't parse/normalize URLs with query params.
             expect(axios.create).toHaveBeenCalledWith(
                 expect.objectContaining({
                     baseURL: 'https://api.letta.com?key=value/v1',
@@ -383,6 +383,7 @@ describe('API Client Configuration (LMP-85)', () => {
 
             new LettaServer();
 
+            // Legacy behavior: we don't parse/normalize URLs with fragments.
             expect(axios.create).toHaveBeenCalledWith(
                 expect.objectContaining({
                     baseURL: 'https://api.letta.com#section/v1',
