@@ -2,11 +2,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { LettaServer } from '../../core/server.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import axios from 'axios';
+import Letta from '@letta-ai/letta-client';
 import { createLogger } from '../../core/logger.js';
 
 // Mock dependencies
 vi.mock('@modelcontextprotocol/sdk/server/index.js');
 vi.mock('axios');
+vi.mock('@letta-ai/letta-client');
 vi.mock('../../core/logger.js');
 
 describe('LettaServer Initialization (LMP-82)', () => {
@@ -14,6 +16,7 @@ describe('LettaServer Initialization (LMP-82)', () => {
     let mockLogger;
     let mockMCPServer;
     let mockAxiosInstance;
+    let mockLettaClient;
 
     beforeEach(() => {
         // Save original env vars
@@ -51,6 +54,29 @@ describe('LettaServer Initialization (LMP-82)', () => {
             request: vi.fn(),
         };
         axios.create.mockReturnValue(mockAxiosInstance);
+
+        // Set up mock Letta SDK client
+        mockLettaClient = {
+            agents: {
+                list: vi.fn(),
+                retrieve: vi.fn(),
+                create: vi.fn(),
+                update: vi.fn(),
+                delete: vi.fn(),
+                messages: {
+                    list: vi.fn(),
+                    create: vi.fn(),
+                },
+                passages: {
+                    list: vi.fn(),
+                    create: vi.fn(),
+                },
+            },
+            tools: {
+                list: vi.fn(),
+            },
+        };
+        Letta.mockImplementation(() => mockLettaClient);
     });
 
     afterEach(() => {
@@ -285,6 +311,74 @@ describe('LettaServer Initialization (LMP-82)', () => {
 
             const server = new LettaServer();
             expect(server.apiBase).toBe('https://test.letta.com//v1');
+        });
+    });
+
+    describe('Letta SDK Client Initialization', () => {
+        beforeEach(() => {
+            process.env.LETTA_BASE_URL = 'https://test.letta.com';
+            process.env.LETTA_PASSWORD = 'test-password';
+        });
+
+        it('should initialize Letta SDK client', () => {
+            const server = new LettaServer();
+            expect(server.client).toBeDefined();
+            expect(server.client).toBe(mockLettaClient);
+        });
+
+        it('should create Letta client with correct base URL (without /v1 suffix)', () => {
+            process.env.LETTA_BASE_URL = 'https://test.letta.com/v1';
+
+            new LettaServer();
+
+            expect(Letta).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    baseUrl: 'https://test.letta.com',
+                }),
+            );
+        });
+
+        it('should pass token to Letta client', () => {
+            new LettaServer();
+
+            expect(Letta).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    token: 'test-password',
+                }),
+            );
+        });
+
+        it('should handle base URL without /v1 suffix', () => {
+            process.env.LETTA_BASE_URL = 'https://test.letta.com';
+
+            new LettaServer();
+
+            expect(Letta).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    baseUrl: 'https://test.letta.com',
+                }),
+            );
+        });
+
+        it('should expose client.agents for agent operations', () => {
+            const server = new LettaServer();
+            expect(server.client.agents).toBeDefined();
+            expect(server.client.agents.list).toBeDefined();
+            expect(server.client.agents.retrieve).toBeDefined();
+            expect(server.client.agents.create).toBeDefined();
+        });
+
+        it('should expose client.agents.messages for message operations', () => {
+            const server = new LettaServer();
+            expect(server.client.agents.messages).toBeDefined();
+            expect(server.client.agents.messages.list).toBeDefined();
+        });
+
+        it('should expose client.agents.passages for archival memory operations', () => {
+            const server = new LettaServer();
+            expect(server.client.agents.passages).toBeDefined();
+            expect(server.client.agents.passages.list).toBeDefined();
+            expect(server.client.agents.passages.create).toBeDefined();
         });
     });
 

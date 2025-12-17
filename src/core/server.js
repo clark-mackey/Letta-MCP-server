@@ -4,7 +4,7 @@ import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import axios from 'axios';
 import http from 'http';
 import https from 'https';
-import { LettaClient } from '@letta-ai/letta-client';
+import Letta from '@letta-ai/letta-client';
 import { createLogger } from './logger.js';
 
 /**
@@ -106,7 +106,7 @@ export class LettaServer {
         // Initialize Letta SDK client
         // The SDK provides type-safe methods for Letta API operations
         const baseUrl = process.env.LETTA_BASE_URL || '';
-        this.client = new LettaClient({
+        this.client = new Letta({
             baseUrl: baseUrl.endsWith('/v1') ? baseUrl.slice(0, -3) : baseUrl,
             token: this.password,
         });
