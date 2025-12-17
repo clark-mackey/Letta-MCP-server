@@ -47,6 +47,7 @@
     "postversion": "git push && git push --tags"
   },
   "dependencies": {
+    "@letta-ai/letta-client": "^1.4.0",
     "@modelcontextprotocol/sdk": "1.22.0",
     "axios": "^1.13.2",
     "cors": "^2.8.5",
