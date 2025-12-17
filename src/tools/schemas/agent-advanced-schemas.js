@@ -156,6 +156,9 @@ export const agentAdvancedInputSchema = {
                 'search_messages',
                 'get_message',
                 'count',
+                // Message history operations
+                'list_messages',
+                'create_conversation_entry',
             ],
             description: 'Agent operation to perform',
         },
@@ -200,9 +203,48 @@ export const agentAdvancedInputSchema = {
             properties: {
                 limit: { type: 'integer', minimum: 1, maximum: 100 },
                 offset: { type: 'integer', minimum: 0 },
+                before: {
+                    type: 'string',
+                    description: 'Cursor for pagination - get items before this ID',
+                },
+                after: {
+                    type: 'string',
+                    description: 'Cursor for pagination - get items after this ID',
+                },
             },
             additionalProperties: false,
-            description: 'Pagination options for list operation',
+            description: 'Pagination options for list and list_messages operations',
+        },
+        conversation_entry: {
+            type: 'object',
+            properties: {
+                role: {
+                    type: 'string',
+                    enum: ['user', 'assistant', 'system'],
+                    description: 'Role of the message sender',
+                },
+                content: {
+                    type: 'string',
+                    description: 'The message content',
+                },
+                timestamp: {
+                    type: 'string',
+                    format: 'date-time',
+                    description: 'ISO 8601 timestamp of the message (defaults to now)',
+                },
+                source: {
+                    type: 'string',
+                    description:
+                        'Source of the conversation (e.g., "claude_code", "opencode", "letta_ade")',
+                },
+                session_id: {
+                    type: 'string',
+                    description: 'Session identifier for grouping related messages',
+                },
+            },
+            required: ['role', 'content'],
+            additionalProperties: false,
+            description: 'Conversation entry data for create_conversation_entry operation',
         },
         request_heartbeat: {
             type: 'boolean',

@@ -68,6 +68,11 @@ export async function handleLettaAgentAdvanced(server, args) {
                 return await handleGetMessage(server, args);
             case 'count':
                 return await handleCount(server, args);
+            // Message history operations
+            case 'list_messages':
+                return await handleListMessages(server, args);
+            case 'create_conversation_entry':
+                return await handleCreateConversationEntry(server, args);
             default:
                 throw new Error(`Unknown operation: ${operation}`);
         }
@@ -941,11 +946,124 @@ async function handleCount(server, args) {
 }
 
 /**
+ * List messages from an agent's conversation history
+ * Uses SDK client.agents.messages.list() for paginated results
+ */
+async function handleListMessages(server, args) {
+    const { agent_id, pagination = {} } = args;
+
+    if (!agent_id) {
+        throw new Error('agent_id is required for list_messages operation');
+    }
+
+    const result = await server.handleSdkCall(async () => {
+        // Use SDK client.agents.messages.list() with pagination options
+        return await server.client.agents.messages.list(agent_id, {
+            limit: pagination.limit,
+            before: pagination.before,
+            after: pagination.after,
+        });
+    }, 'Listing messages');
+
+    const messages = Array.isArray(result) ? result : [];
+
+    return validateResponse(
+        AgentResponseSchema,
+        {
+            success: true,
+            operation: 'list_messages',
+            agent_id,
+            messages: messages.map((msg) => ({
+                id: msg.id,
+                date: msg.date || msg.created_at,
+                message_type: msg.message_type,
+                role: msg.role,
+                content: msg.content || msg.text,
+            })),
+            count: messages.length,
+            message: `Retrieved ${messages.length} messages`,
+        },
+        { context: 'agent_ops' },
+    );
+}
+
+/**
+ * Store a conversation entry in an agent's archival memory
+ * Formats the entry with metadata for easy filtering and search
+ */
+async function handleCreateConversationEntry(server, args) {
+    const { agent_id, conversation_entry = {} } = args;
+
+    if (!agent_id) {
+        throw new Error('agent_id is required for create_conversation_entry operation');
+    }
+    if (!conversation_entry.role) {
+        throw new Error('conversation_entry.role is required');
+    }
+    if (!conversation_entry.content) {
+        throw new Error('conversation_entry.content is required');
+    }
+
+    // Format the conversation entry to match Letta's message structure
+    const timestamp = conversation_entry.timestamp || new Date().toISOString();
+    const source = conversation_entry.source || 'unknown';
+    const sessionId = conversation_entry.session_id || 'no-session';
+
+    // Map role to Letta message_type
+    const messageTypeMap = {
+        user: 'user_message',
+        assistant: 'assistant_message',
+        system: 'system_message',
+    };
+
+    // Create JSON structure matching Letta message format
+    const messageEntry = {
+        message_type: messageTypeMap[conversation_entry.role] || 'user_message',
+        date: timestamp,
+        role: conversation_entry.role,
+        text: conversation_entry.content,
+        source: source,
+        session_id: sessionId,
+    };
+
+    // Store as JSON for consistent parsing and search
+    const entryText = JSON.stringify(messageEntry);
+
+    const result = await server.handleSdkCall(async () => {
+        // Use SDK client.agents.passages.create() to store in archival memory
+        return await server.client.agents.passages.create(agent_id, {
+            text: entryText,
+        });
+    }, 'Creating conversation entry');
+
+    // Strip embedding from response if present
+    const passage = { ...result };
+    if (passage.embedding) {
+        delete passage.embedding;
+    }
+
+    return validateResponse(
+        AgentResponseSchema,
+        {
+            success: true,
+            operation: 'create_conversation_entry',
+            agent_id,
+            passage_id: passage.id,
+            timestamp,
+            role: conversation_entry.role,
+            source,
+            message: 'Conversation entry stored in archival memory',
+        },
+        { context: 'agent_ops' },
+    );
+}
+
+/**
  * Tool definition for letta_agent_advanced
  */
 export const lettaAgentAdvancedDefinition = {
     name: 'letta_agent_advanced',
     description:
-        'Agent Operations Hub - Unified tool for complete agent lifecycle management including CRUD operations (list, create, get, update, delete, list_tools, send_message, export, import, clone, get_config, bulk_delete) and advanced capabilities (context management, message streaming, async messaging, conversation summaries, message search). Replaces 22 individual agent endpoints with discriminator-based operation routing.',
+        'Agent Operations Hub - Unified tool for complete agent lifecycle management including CRUD operations (list, create, get, update, delete, list_tools, send_message, export, import, clone, get_config, bulk_delete) and advanced capabilities (context management, message streaming, async messaging, conversation summaries, message search, list_messages, create_conversation_entry). Replaces 24 individual agent endpoints with discriminator-based operation routing.',
     inputSchema: agentAdvancedInputSchema,
 };
