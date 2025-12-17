@@ -7,6 +7,7 @@ import { validateResponse } from '../../core/response-validator.js';
 import { ToolManagerResponseSchema } from '../schemas/response-schemas.js';
 // eslint-disable-next-line no-unused-vars
 import { toolManagerInputSchema } from '../schemas/tool-manager-schemas.js';
+import { extractArrayFromSdkResponse } from '../utils/sdk-helpers.js';
 
 const logger = createLogger('letta_tool_manager');
 
@@ -81,9 +82,9 @@ async function handleListTools(server, args) {
         return await server.client.tools.list(listParams);
     }, 'Listing tools');
 
-    // Handle both array and paginated response formats
-    const tools = Array.isArray(result) ? result : result.tools || result.data || [];
-    const total = result.total || tools.length;
+    // Extract tools array from SDK response
+    const tools = extractArrayFromSdkResponse(result);
+    const total = result?.total || tools.length;
 
     return validateResponse(
         ToolManagerResponseSchema,
@@ -542,8 +543,9 @@ async function handleAddBaseTools(server, _args) {
         return await server.client.tools.upsertBaseTools();
     }, 'Adding base tools');
 
-    // SDK returns array of tools
-    const toolsCount = Array.isArray(result) ? result.length : result.count || 0;
+    // Extract tools array from SDK response
+    const tools = extractArrayFromSdkResponse(result);
+    const toolsCount = tools.length;
 
     return validateResponse(
         ToolManagerResponseSchema,
@@ -551,7 +553,7 @@ async function handleAddBaseTools(server, _args) {
             success: true,
             operation: 'add_base_tools',
             added_tools_count: toolsCount,
-            tools: result,
+            tools: tools,
             message: `Successfully added ${toolsCount} base tools`,
         },
         { context: 'tool_ops' },

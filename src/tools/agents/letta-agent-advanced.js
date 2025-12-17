@@ -6,6 +6,7 @@ import { createLogger } from '../../core/logger.js';
 import { agentAdvancedInputSchema } from '../schemas/agent-advanced-schemas.js';
 import { validateResponse } from '../../core/response-validator.js';
 import { AgentResponseSchema } from '../schemas/response-schemas.js';
+import { extractArrayFromSdkResponse } from '../utils/sdk-helpers.js';
 
 const logger = createLogger('letta_agent_advanced');
 
@@ -97,8 +98,8 @@ async function handleListAgents(server, args) {
         });
     }, 'Listing agents');
 
-    // SDK returns array directly
-    const agents = Array.isArray(result) ? result : [];
+    // SDK returns various formats - use helper to extract array
+    const agents = extractArrayFromSdkResponse(result);
 
     return validateResponse(
         AgentResponseSchema,
@@ -277,7 +278,7 @@ async function handleListAgentTools(server, args) {
         return await server.client.agents.tools.list(agent_id);
     }, 'Listing agent tools');
 
-    const tools = Array.isArray(result) ? result : [];
+    const tools = extractArrayFromSdkResponse(result);
 
     return validateResponse(
         AgentResponseSchema,
@@ -809,7 +810,7 @@ async function handleSearchMessages(server, args) {
             });
         }, 'Searching messages');
 
-        const messages = Array.isArray(result) ? result : [];
+        const messages = extractArrayFromSdkResponse(result);
 
         return validateResponse(
             AgentResponseSchema,
@@ -965,7 +966,7 @@ async function handleListMessages(server, args) {
         });
     }, 'Listing messages');
 
-    const messages = Array.isArray(result) ? result : [];
+    const messages = extractArrayFromSdkResponse(result);
 
     return validateResponse(
         AgentResponseSchema,

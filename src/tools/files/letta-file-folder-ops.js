@@ -6,6 +6,7 @@ import { createLogger } from '../../core/logger.js';
 import { fileOpsInputSchema } from '../schemas/file-ops-schemas.js';
 import { validateResponse } from '../../core/response-validator.js';
 import { FileFolderResponseSchema } from '../schemas/response-schemas.js';
+import { extractArrayFromSdkResponse } from '../utils/sdk-helpers.js';
 
 const logger = createLogger('letta_file_folder_ops');
 
@@ -164,8 +165,8 @@ async function handleCloseAllFiles(server, args) {
         return await server.client.agents.files.closeAll(agent_id);
     }, 'Closing all files');
 
-    // SDK returns array of file names that were closed
-    const closedFiles = Array.isArray(result) ? result : [];
+    // Extract closed files array from SDK response
+    const closedFiles = extractArrayFromSdkResponse(result);
 
     return validateResponse(
         FileFolderResponseSchema,
@@ -191,8 +192,8 @@ async function handleListFolders(server, _args) {
         return await server.client.folders.list();
     }, 'Listing folders');
 
-    // SDK returns Folder[] array
-    const folders = Array.isArray(result) ? result : [];
+    // Extract folders array from SDK response
+    const folders = extractArrayFromSdkResponse(result);
 
     return validateResponse(
         FileFolderResponseSchema,
@@ -296,8 +297,8 @@ async function handleListAgentsInFolder(server, args) {
         return await server.client.folders.agents.list(folder_id);
     }, 'Listing agents in folder');
 
-    // SDK returns array of agent ID strings
-    const agentIds = Array.isArray(result) ? result : [];
+    // Extract agent IDs array from SDK response
+    const agentIds = extractArrayFromSdkResponse(result);
 
     return validateResponse(
         FileFolderResponseSchema,

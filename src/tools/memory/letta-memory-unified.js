@@ -7,6 +7,7 @@ import { validateResponse } from '../../core/response-validator.js';
 import { MemoryResponseSchema } from '../schemas/response-schemas.js';
 // eslint-disable-next-line no-unused-vars
 import { memoryUnifiedInputSchema } from '../schemas/memory-unified-schemas.js';
+import { extractArrayFromSdkResponse } from '../utils/sdk-helpers.js';
 
 const logger = createLogger('letta_memory_unified');
 
@@ -207,7 +208,7 @@ async function handleListBlocks(server, args) {
         return await server.client.agents.blocks.list(agent_id);
     }, 'Listing memory blocks');
 
-    const blocks = Array.isArray(result) ? result : result.blocks || [];
+    const blocks = extractArrayFromSdkResponse(result);
 
     return validateResponse(
         MemoryResponseSchema,
@@ -436,7 +437,7 @@ async function handleListAgentsUsingBlock(server, args) {
             );
             return response.data;
         }, 'Listing agents using block (API fallback)');
-        agents = Array.isArray(result) ? result : result.agents || [];
+        agents = extractArrayFromSdkResponse(result);
     }
 
     return validateResponse(
@@ -477,7 +478,7 @@ async function handleSearchArchival(server, args) {
         });
     }, 'Searching archival memory');
 
-    const searchResults = Array.isArray(result) ? result : result.results || result.passages || [];
+    const searchResults = extractArrayFromSdkResponse(result);
 
     return validateResponse(
         MemoryResponseSchema,
@@ -513,7 +514,7 @@ async function handleListPassages(server, args) {
         return await server.client.agents.passages.list(agent_id, pagination);
     }, 'Listing passages');
 
-    const passages = Array.isArray(result) ? result : result.passages || result.results || [];
+    const passages = extractArrayFromSdkResponse(result);
 
     return validateResponse(
         MemoryResponseSchema,
@@ -555,9 +556,9 @@ async function handleCreatePassage(server, args) {
         return await server.client.agents.passages.create(agent_id, passage_data);
     }, 'Creating passage');
 
-    // SDK may return array of passages
-    const passages = Array.isArray(result) ? result : [result];
-    const firstPassage = passages[0] || result;
+    // SDK may return array of passages or single passage wrapped
+    const passages = extractArrayFromSdkResponse(result);
+    const firstPassage = passages.length > 0 ? passages[0] : result?.body || result;
 
     return validateResponse(
         MemoryResponseSchema,

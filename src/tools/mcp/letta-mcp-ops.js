@@ -6,6 +6,7 @@ import { createLogger } from '../../core/logger.js';
 import { mcpOpsInputSchema } from '../schemas/mcp-ops-schemas.js';
 import { validateResponse } from '../../core/response-validator.js';
 import { McpServerResponseSchema } from '../schemas/response-schemas.js';
+import { extractArrayFromSdkResponse } from '../utils/sdk-helpers.js';
 
 const logger = createLogger('letta_mcp_ops');
 
@@ -332,7 +333,8 @@ async function handleListTools(server, args) {
         return await server.client.tools.listMcpToolsByServer(server_name);
     }, 'Listing MCP server tools');
 
-    const tools = Array.isArray(result) ? result : result.tools || [];
+    // Extract tools array from SDK response
+    const tools = extractArrayFromSdkResponse(result);
 
     return validateResponse(
         McpServerResponseSchema,

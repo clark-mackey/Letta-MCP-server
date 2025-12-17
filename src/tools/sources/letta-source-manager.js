@@ -10,6 +10,7 @@ import { sourceManagerInputSchema } from '../schemas/source-manager-schemas.js';
 const FileCtor = typeof File === 'function' ? File : null;
 import { validateResponse } from '../../core/response-validator.js';
 import { SourceManagerResponseSchema } from '../schemas/response-schemas.js';
+import { extractArrayFromSdkResponse } from '../utils/sdk-helpers.js';
 
 const logger = createLogger('letta_source_manager');
 
@@ -57,8 +58,8 @@ async function handleList(server) {
         return await server.client.sources.list();
     }, 'Listing sources');
 
-    // SDK returns Source[] array
-    const sources = Array.isArray(result) ? result : [];
+    // Extract sources array from SDK response
+    const sources = extractArrayFromSdkResponse(result);
     return validateResponse(
         SourceManagerResponseSchema,
         {
@@ -391,8 +392,8 @@ async function handleListFiles(server, args) {
         return await server.client.sources.files.list(source_id);
     }, 'Listing source files');
 
-    // SDK returns FileMetadata[] array
-    const files = Array.isArray(result) ? result : [];
+    // Extract files array from SDK response
+    const files = extractArrayFromSdkResponse(result);
     return validateResponse(
         SourceManagerResponseSchema,
         {
@@ -452,8 +453,8 @@ async function handleListPassages(server, args) {
         return await server.client.sources.passages.list(source_id);
     }, 'Listing source passages');
 
-    // SDK returns Passage[] array
-    const passages = Array.isArray(result) ? result : [];
+    // Extract passages array from SDK response
+    const passages = extractArrayFromSdkResponse(result);
     return validateResponse(
         SourceManagerResponseSchema,
         {
@@ -575,8 +576,8 @@ async function handleListAgentSources(server, args) {
         return await server.client.agents.sources.list(agent_id);
     }, 'Listing agent sources');
 
-    // SDK returns Source[] array
-    const sources = Array.isArray(result) ? result : [];
+    // Extract sources array from SDK response
+    const sources = extractArrayFromSdkResponse(result);
     return validateResponse(
         SourceManagerResponseSchema,
         {

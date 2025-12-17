@@ -6,6 +6,7 @@ import { createLogger } from '../../core/logger.js';
 import { jobMonitorInputSchema } from '../schemas/job-monitor-schemas.js';
 import { validateResponse } from '../../core/response-validator.js';
 import { JobMonitorResponseSchema } from '../schemas/response-schemas.js';
+import { extractArrayFromSdkResponse } from '../utils/sdk-helpers.js';
 
 const logger = createLogger('letta_job_monitor');
 
@@ -54,8 +55,8 @@ async function handleList(server, args) {
         });
     }, 'Listing jobs');
 
-    // SDK returns Job[] array
-    const jobs = Array.isArray(result) ? result : [];
+    // Extract jobs array from SDK response
+    const jobs = extractArrayFromSdkResponse(result);
 
     return validateResponse(
         JobMonitorResponseSchema,
@@ -129,8 +130,8 @@ async function handleListActive(server, _args) {
         return await server.client.jobs.listActive();
     }, 'Listing active jobs');
 
-    // SDK returns Job[] array
-    const jobs = Array.isArray(result) ? result : [];
+    // Extract jobs array from SDK response
+    const jobs = extractArrayFromSdkResponse(result);
 
     return validateResponse(
         JobMonitorResponseSchema,
