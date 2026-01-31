@@ -2,6 +2,40 @@ import { createLogger } from '../../core/logger.js';
 
 const logger = createLogger('prompt_agent');
 
+// Convex URL for logging interactions (GEPA feedback loop)
+const CONVEX_URL = process.env.CONVEX_URL || '';
+
+/**
+ * Log interaction to Convex for GEPA optimization (fire-and-forget)
+ */
+async function logToConvex(agentId, tenantId, input, output) {
+    if (!CONVEX_URL) {
+        return; // Silently skip if not configured
+    }
+
+    try {
+        const response = await fetch(`${CONVEX_URL}/logInteraction`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                agentId,
+                tenantId,
+                input: input.slice(0, 5000), // Truncate to avoid huge payloads
+                output: output.slice(0, 10000),
+            }),
+        });
+
+        if (!response.ok) {
+            logger.warn(`Failed to log to Convex: ${response.status}`);
+        } else {
+            logger.debug('Interaction logged to Convex');
+        }
+    } catch (error) {
+        // Fire-and-forget - don't fail the main request
+        logger.warn('Error logging to Convex:', error.message);
+    }
+}
+
 /**
  * Parse SSE data and extract assistant message content
  */
@@ -101,6 +135,11 @@ export async function handlePromptAgent(server, args) {
                 reject(err);
             });
         });
+
+        // Log to Convex for GEPA optimization (fire-and-forget, don't await)
+        // Use 'mcp-user' as default tenant, can be enhanced with identity later
+        const tenantId = args.identity_id || 'mcp-user';
+        logToConvex(args.agent_id, tenantId, args.message, responseText).catch(() => {});
 
         return {
             content: [
