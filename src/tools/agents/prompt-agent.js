@@ -3,7 +3,39 @@ import { createLogger } from '../../core/logger.js';
 const logger = createLogger('prompt_agent');
 
 /**
- * Tool handler for prompting an agent in the Letta system
+ * Parse SSE data and extract assistant message content
+ */
+function parseSSEData(buffer) {
+    const dataLines = buffer
+        .split('\n')
+        .filter((line) => line.trim().startsWith('data: '));
+
+    const messages = [];
+    let assistantResponse = '';
+
+    for (const line of dataLines) {
+        try {
+            const jsonStr = line.substring(6);
+            const eventData = JSON.parse(jsonStr);
+
+            if (eventData.message_type === 'assistant_message' && eventData.content) {
+                assistantResponse = eventData.content;
+            } else if (eventData.message_type === 'reasoning_message' && eventData.reasoning) {
+                messages.push(`[Reasoning]: ${eventData.reasoning}`);
+            } else if (eventData.delta && eventData.delta.content) {
+                messages.push(eventData.delta.content);
+            }
+        } catch {
+            // Skip unparseable lines
+        }
+    }
+
+    return assistantResponse || messages.join('\n') || null;
+}
+
+/**
+ * Tool handler for prompting an agent in the Letta system.
+ * Uses true streaming to prevent timeout on long-running requests.
  */
 export async function handlePromptAgent(server, args) {
     try {
@@ -12,16 +44,16 @@ export async function handlePromptAgent(server, args) {
             throw new Error('Missing required arguments: agent_id and message');
         }
 
-        // Headers for API requests
         const headers = server.getApiHeaders();
 
-        // First, check if the agent exists
+        // Get agent name first (fast call)
         const agentInfoResponse = await server.api.get(`/agents/${args.agent_id}`, { headers });
         const agentName = agentInfoResponse.data.name;
 
-        // Send message to agent using the messages/stream endpoint
+        // Use the newer /messages endpoint with streaming=true
+        // This keeps the connection alive by sending data continuously
         const response = await server.api.post(
-            `/agents/${args.agent_id}/messages/stream`,
+            `/agents/${args.agent_id}/messages`,
             {
                 messages: [
                     {
@@ -29,72 +61,46 @@ export async function handlePromptAgent(server, args) {
                         content: args.message,
                     },
                 ],
-                stream_steps: false,
-                stream_tokens: false,
+                streaming: true,
+                include_pings: true, // Keep-alive pings during long processing
             },
             {
                 headers,
-                responseType: 'text',
+                responseType: 'stream',
+                // No timeout - let stream handle it
+                timeout: 0,
             },
         );
 
-        // Extract the response
+        // Process the stream - accumulate chunks as they arrive
+        // This keeps the HTTP connection alive because data is flowing
+        let buffer = '';
         let responseText = '';
-        try {
-            // The response is in Server-Sent Events (SSE) format
-            if (typeof response.data === 'string') {
-                // Find lines that start with "data: "
-                const dataLines = response.data
-                    .split('\n')
-                    .filter((line) => line.trim().startsWith('data: '));
 
-                // Process each data line
-                const messages = [];
-                for (const line of dataLines) {
-                    try {
-                        // Extract the JSON part after "data: "
-                        const jsonStr = line.substring(6);
-                        const eventData = JSON.parse(jsonStr);
-
-                        // Extract the message content based on message type
-                        if (eventData.message_type === 'assistant_message' && eventData.content) {
-                            // This is the main response message
-                            responseText = eventData.content;
-                            break;
-                        } else if (
-                            eventData.message_type === 'reasoning_message' &&
-                            eventData.reasoning
-                        ) {
-                            // This is the reasoning message (agent's thought process)
-                            messages.push(`[Reasoning]: ${eventData.reasoning}`);
-                        } else if (eventData.delta && eventData.delta.content) {
-                            // This is a streaming delta update
-                            messages.push(eventData.delta.content);
-                        }
-                    } catch (jsonError) {
-                        logger.error('Error parsing SSE JSON:', jsonError);
-                        // If we can't parse the JSON, just add the raw line
-                        messages.push(line.substring(6));
-                    }
+        await new Promise((resolve, reject) => {
+            response.data.on('data', (chunk) => {
+                buffer += chunk.toString();
+                // Try to extract response as we go
+                const parsed = parseSSEData(buffer);
+                if (parsed) {
+                    responseText = parsed;
                 }
+            });
 
-                // If we didn't find a specific assistant message, join all messages
-                if (!responseText && messages.length > 0) {
-                    responseText = messages.join('\n');
-                }
-
-                // If we still don't have a response, use the raw data
+            response.data.on('end', () => {
+                // Final parse
                 if (!responseText) {
-                    responseText = "Received response but couldn't extract message content";
+                    const parsed = parseSSEData(buffer);
+                    responseText = parsed || "Received response but couldn't extract message content";
                 }
-            } else if (response.data) {
-                // Handle non-string response (unlikely with SSE)
-                responseText = JSON.stringify(response.data);
-            }
-        } catch (error) {
-            logger.error('Error parsing response:', error);
-            responseText = 'Error parsing agent response';
-        }
+                resolve();
+            });
+
+            response.data.on('error', (err) => {
+                logger.error('Stream error:', err);
+                reject(err);
+            });
+        });
 
         return {
             content: [
