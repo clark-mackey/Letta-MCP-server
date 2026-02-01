@@ -1,25 +1,27 @@
 {
-  "name": "letta-mcp-server",
-  "version": "2.0.1",
-  "description": "Model Context Protocol (MCP) server for Letta - provides tools for managing agents, memory, and passages",
+  "name": "@sparkdogai/letta-mcp-server",
+  "version": "2.1.0",
+  "description": "Model Context Protocol (MCP) server for Letta with GEPA instrumentation - provides tools for managing agents, memory, and passages",
   "keywords": [
     "mcp",
     "letta",
     "ai",
     "agents",
     "memory",
-    "model-context-protocol"
+    "model-context-protocol",
+    "gepa",
+    "dspy"
   ],
-  "homepage": "https://github.com/oculairmedia/Letta-MCP-server#readme",
+  "homepage": "https://github.com/SparkdogAI/Letta-MCP-server#readme",
   "bugs": {
-    "url": "https://github.com/oculairmedia/Letta-MCP-server/issues"
+    "url": "https://github.com/SparkdogAI/Letta-MCP-server/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/oculairmedia/Letta-MCP-server.git"
+    "url": "git+https://github.com/SparkdogAI/Letta-MCP-server.git"
   },
   "license": "MIT",
-  "author": "Oculair Media",
+  "author": "SparkdogAI (fork of Oculair Media)",
   "main": "src/index.js",
   "type": "module",
   "bin": {
