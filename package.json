@@ -1,5 +1,5 @@
 {
-  "name": "@sparkdogai/letta-mcp-server",
+  "name": "letta-mcp-gepa",
   "version": "2.1.0",
   "description": "Model Context Protocol (MCP) server for Letta with GEPA instrumentation - provides tools for managing agents, memory, and passages",
   "keywords": [
